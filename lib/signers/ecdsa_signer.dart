@@ -89,7 +89,7 @@ class ECDSASigner implements Signer {
   }
 
   @override
-  Signature generateSignature(Uint8List message) {
+  Signature generateSignature(Uint8List message, {bool recover = false}) {
     message = _hashMessageIfNeeded(message);
 
     var n = _pvkey.parameters.n;
@@ -104,6 +104,8 @@ class ECDSASigner implements Signer {
       kCalculator = _RandomKCalculator(n, _random);
     }
 
+    BigInt x, y;
+
     // 5.3.2
     do {
       // generate s
@@ -116,7 +118,8 @@ class ECDSASigner implements Signer {
         var p = _pvkey.parameters.G * k;
 
         // 5.3.3
-        var x = p.x.toBigInteger();
+        x = p.x.toBigInteger();
+        y = p.y.toBigInteger();
 
         r = x % n;
       } while (r == BigInt.zero);
@@ -126,7 +129,12 @@ class ECDSASigner implements Signer {
       s = (k.modInverse(n) * (e + (d * r))) % n;
     } while (s == BigInt.zero);
 
-    return ECSignature(r, s);
+    if (!recover) {
+      return ECSignature(r, s);
+    } else {
+      final recoveryParam = (y.isOdd ? 1 : 0) | (x != BigInt.zero ? 2 : 0);
+      return ECSignatureV(r, s, recoveryParam);
+    }
   }
 
   @override
